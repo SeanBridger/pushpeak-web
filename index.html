@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PushPeak Leaderboard</title>
+  <style>
+    :root {
+      --bg:       #0a0a0f;
+      --surface:  #14141c;
+      --border:   rgba(255,255,255,0.08);
+      --red:      #e63b2e;
+      --gold:     #ffd700;
+      --silver:   #c0c0c0;
+      --bronze:   #cd7f32;
+      --text:     #e8e4d9;
+      --muted:    rgba(232,228,217,0.4);
+      --green:    #4cff91;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', 'Courier New', monospace;
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+
+    /* Ambient glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(ellipse, rgba(230,59,46,0.10) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .header {
+      border-bottom: 1px solid rgba(230,59,46,0.2);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative; z-index: 10;
+      background: rgba(10,10,15,0.95);
+      backdrop-filter: blur(10px);
+      position: sticky; top: 0;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: linear-gradient(135deg, #e63b2e, #ff8c00);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px rgba(230,59,46,0.4);
+    }
+
+    .logo-text { font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: var(--red); }
+    .logo-sub  { font-size: 10px; color: var(--muted); letter-spacing: 0.15em; }
+
+    .sync-indicator {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--muted); letter-spacing: 0.1em;
+    }
+
+    .sync-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    .container { max-width: 520px; margin: 0 auto; padding: 24px 16px; position: relative; z-index: 5; }
+
+    /* Group input */
+    .group-bar {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+
+    .group-input {
+      flex: 1; background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      color: var(--text); font-family: inherit;
+      font-size: 13px; letter-spacing: 0.1em;
+      outline: none; text-transform: uppercase;
+      transition: border-color 0.2s;
+    }
+
+    .group-input::placeholder { color: var(--muted); text-transform: none; }
+    .group-input:focus { border-color: rgba(230,59,46,0.5); }
+
+    .group-btn {
+      padding: 10px 16px;
+      background: rgba(230,59,46,0.15);
+      border: 1px solid rgba(230,59,46,0.4);
+      border-radius: 8px; color: var(--red);
+      font-family: inherit; font-size: 11px;
+      letter-spacing: 0.1em; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+
+    .group-btn:hover { background: rgba(230,59,46,0.25); }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 6px; margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1; padding: 10px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-family: inherit; font-size: 10px;
+      letter-spacing: 0.12em; cursor: pointer;
+      transition: all 0.2s; text-align: center;
+    }
+
+    .tab.active {
+      background: rgba(230,59,46,0.12);
+      border-color: rgba(230,59,46,0.4);
+      color: var(--red);
+    }
+
+    /* Group pills */
+    .group-pills {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .pill {
+      padding: 5px 12px;
+      border-radius: 20px; font-size: 10px;
+      letter-spacing: 0.1em; cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted); transition: all 0.2s;
+    }
+
+    .pill.active {
+      background: rgba(230,59,46,0.15);
+      border-color: rgba(230,59,46,0.4);
+      color: var(--red);
+    }
+
+    .pill .remove {
+      margin-left: 6px; opacity: 0.5;
+      cursor: pointer;
+    }
+
+    .pill .remove:hover { opacity: 1; color: var(--red); }
+
+    /* Leaderboard */
+    .leaderboard { display: flex; flex-direction: column; gap: 8px; }
+
+    .entry {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      animation: slideIn 0.3s ease both;
+      transition: border-color 0.2s;
+    }
+
+    .entry:hover { border-color: rgba(255,255,255,0.15); }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .rank {
+      width: 32px; text-align: center;
+      font-size: 16px; font-weight: 700; flex-shrink: 0;
+    }
+
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      color: var(--muted); flex-shrink: 0;
+    }
+
+    .info { flex: 1; min-width: 0; }
+
+    .name {
+      font-size: 14px; font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .meta {
+      font-size: 10px; color: var(--muted);
+      margin-top: 2px; letter-spacing: 0.05em;
+    }
+
+    .reps { text-align: right; }
+    .reps-count { font-size: 18px; font-weight: 700; }
+    .reps-label {
+      font-size: 9px; color: var(--muted);
+      letter-spacing: 0.1em; margin-top: 2px;
+    }
+
+    /* Loading / empty states */
+    .state-msg {
+      text-align: center; padding: 48px 24px;
+      color: var(--muted); font-size: 13px;
+      letter-spacing: 0.05em; line-height: 1.8;
+    }
+
+    .spinner {
+      width: 28px; height: 28px;
+      border: 2px solid rgba(230,59,46,0.2);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .last-updated {
+      text-align: center; font-size: 10px;
+      color: var(--muted); margin-top: 20px;
+      letter-spacing: 0.08em;
+    }
+
+    .share-url {
+      background: var(--surface);
+      border: 1px dashed rgba(230,59,46,0.3);
+      border-radius: 10px; padding: 14px 16px;
+      margin-bottom: 16px; font-size: 11px;
+      color: var(--muted); letter-spacing: 0.05em;
+      display: none;
+    }
+
+    .share-url span { color: var(--red); }
+
+    .copy-btn {
+      background: none; border: none;
+      color: var(--red); font-family: inherit;
+      font-size: 10px; cursor: pointer;
+      letter-spacing: 0.1em; margin-top: 6px;
+      padding: 0;
+    }
+
+    .copy-btn:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">💪</div>
+    <div>
+      <div class="logo-text">PUSHPEAK</div>
+      <div class="logo-sub">LEADERBOARD</div>
+    </div>
+  </div>
+  <div class="sync-indicator">
+    <div class="sync-dot"></div>
+    <span id="syncLabel">LIVE</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Group code input -->
+  <div class="group-bar">
+    <input
+      class="group-input"
+      id="groupInput"
+      placeholder="Enter group code e.g. PUSH-7K2X"
+      maxlength="9"
+    />
+    <button class="group-btn" onclick="addGroup()">+ ADD</button>
+  </div>
+
+  <!-- Share URL (shown when viewing a private group) -->
+  <div class="share-url" id="shareUrl">
+    Share this leaderboard: <span id="shareLink"></span><br/>
+    <button class="copy-btn" onclick="copyShareUrl()">COPY LINK</button>
+  </div>
+
+  <!-- Group pills -->
+  <div class="group-pills" id="groupPills"></div>
+
+  <!-- Timeframe tabs -->
+  <div class="tabs">
+    <button class="tab active" id="tabWeek"    onclick="setTimeframe('week')">THIS WEEK</button>
+    <button class="tab"        id="tabAlltime" onclick="setTimeframe('alltime')">ALL TIME</button>
+  </div>
+
+  <!-- Leaderboard list -->
+  <div id="leaderboardContent">
+    <div class="state-msg">
+      <div class="spinner"></div>
+      Loading leaderboard...
+    </div>
+  </div>
+
+  <div class="last-updated" id="lastUpdated"></div>
+</div>
+
+<script>
+  // ── Config — fill in your Supabase details ─────────────────
+  const SUPABASE_URL = "https://ezmybweixlegzevrovlw.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6bXlid2VpeGxlZ3pldnJvdmx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDUzMjIsImV4cCI6MjA5MDk4MTMyMn0.D0gyfgVWsO6SsJd1RT_oaHJTf-QTFMiaFloluRKLuek";
+
+
+  // ── State ──────────────────────────────────────────────────
+  let groups    = ['global'];   // ordered list: global always first
+  let activeGrp = 'global';
+  let timeframe = 'week';
+  let autoRefreshTimer = null;
+
+  // ── Init ───────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    // Check URL params for pre-loaded group: ?g=PUSH-XXXX
+    const params = new URLSearchParams(window.location.search);
+    const gParam = params.get('g');
+    if (gParam) {
+      const code = gParam.toUpperCase();
+      if (!groups.includes(code)) { groups.push(code); }
+      activeGrp = code;
+    }
+
+    // Load saved groups from localStorage
+    const saved = localStorage.getItem('pushpeak_groups');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      parsed.forEach(g => { if (!groups.includes(g)) groups.push(g); });
+    }
+
+    renderPills();
+    fetchLeaderboard();
+    startAutoRefresh();
+  });
+
+  // ── Group management ───────────────────────────────────────
+  function addGroup() {
+    const input = document.getElementById('groupInput');
+    const code  = input.value.toUpperCase().trim();
+    if (!code.startsWith('PUSH-') || code.length !== 9) {
+      input.style.borderColor = 'rgba(230,59,46,0.8)';
+      input.placeholder = 'Format: PUSH-XXXX';
+      setTimeout(() => {
+        input.style.borderColor = '';
+        input.placeholder = 'Enter group code e.g. PUSH-7K2X';
+      }, 2000);
+      return;
+    }
+    if (!groups.includes(code)) {
+      groups.push(code);
+      saveGroups();
+    }
+    activeGrp = code;
+    input.value = '';
+    renderPills();
+    fetchLeaderboard();
+    updateShareUrl();
+  }
+
+  function removeGroup(code) {
+    groups = groups.filter(g => g !== code);
+    if (activeGrp === code) { activeGrp = 'global'; }
+    saveGroups();
+    renderPills();
+    fetchLeaderboard();
+  }
+
+  function setActiveGroup(code) {
+    activeGrp = code;
+    renderPills();
+    fetchLeaderboard();
+    updateShareUrl();
+  }
+
+  function saveGroups() {
+    localStorage.setItem('pushpeak_groups', JSON.stringify(groups.filter(g => g !== 'global')));
+  }
+
+  function updateShareUrl() {
+    const el = document.getElementById('shareUrl');
+    if (activeGrp === 'global') {
+      el.style.display = 'none';
+    } else {
+      el.style.display = 'block';
+      const url = window.location.origin + window.location.pathname + '?g=' + activeGrp;
+      document.getElementById('shareLink').textContent = url;
+    }
+  }
+
+  function copyShareUrl() {
+    const url = window.location.origin + window.location.pathname + '?g=' + activeGrp;
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = '✓ COPIED!';
+      setTimeout(() => { btn.textContent = 'COPY LINK'; }, 2000);
+    });
+  }
+
+  // ── Render group pills ─────────────────────────────────────
+  function renderPills() {
+    const container = document.getElementById('groupPills');
+    container.innerHTML = groups.map(g => {
+      const isActive  = g === activeGrp;
+      const label     = g === 'global' ? '🌍 Global' : g;
+      const removeBtn = g !== 'global'
+        ? `<span class="remove" onclick="event.stopPropagation(); removeGroup('${g}')">×</span>`
+        : '';
+      return `
+        <div class="pill ${isActive ? 'active' : ''}"
+             onclick="setActiveGroup('${g}')">
+          ${label}${removeBtn}
+        </div>`;
+    }).join('');
+  }
+
+  // ── Timeframe ──────────────────────────────────────────────
+  function setTimeframe(tf) {
+    timeframe = tf;
+    document.getElementById('tabWeek').classList.toggle('active', tf === 'week');
+    document.getElementById('tabAlltime').classList.toggle('active', tf === 'alltime');
+    fetchLeaderboard();
+  }
+
+  // ── Fetch leaderboard ──────────────────────────────────────
+  async function fetchLeaderboard() {
+    const content = document.getElementById('leaderboardContent');
+    content.innerHTML = `
+      <div class="state-msg">
+        <div class="spinner"></div>
+        Loading...
+      </div>`;
+
+    const fn  = timeframe === 'week' ? 'get_leaderboard_weekly' : 'get_leaderboard_alltime';
+    const url = `${SUPABASE_URL}/rest/v1/rpc/${fn}?p_group=${encodeURIComponent(activeGrp)}`;
+
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'apikey':        SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type':  'application/json'
+        }
+      });
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      renderLeaderboard(data);
+      updateTimestamp();
+    } catch (err) {
+      content.innerHTML = `
+        <div class="state-msg">
+          ⚠️ Could not load leaderboard<br/>
+          <small style="color:rgba(232,228,217,0.25)">${err.message}</small>
+        </div>`;
+    }
+  }
+
+  // ── Render entries ─────────────────────────────────────────
+  function renderLeaderboard(entries) {
+    const content = document.getElementById('leaderboardContent');
+
+    if (!entries || entries.length === 0) {
+      content.innerHTML = `
+        <div class="state-msg">
+          No push-ups yet!<br/>
+          <small>Start your first session on your Garmin.</small>
+        </div>`;
+      return;
+    }
+
+    const rankIcons = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+    content.innerHTML = `<div class="leaderboard">` +
+      entries.map((e, i) => {
+        const rank    = i + 1;
+        const icon    = rankIcons[rank] || `#${rank}`;
+        const initials = e.user_name || '???';
+        const reps    = Number(e.total_reps).toLocaleString();
+        const sessions = e.session_count;
+        const lastSeen = formatRelative(e.last_active);
+        const delay   = (i * 50) + 'ms';
+
+        return `
+          <div class="entry" style="animation-delay:${delay}">
+            <div class="rank">${icon}</div>
+            <div class="avatar">${initials}</div>
+            <div class="info">
+              <div class="initials">${initials}</div>
+              <div class="meta">${sessions} session${sessions !== 1 ? 's' : ''} · ${lastSeen}</div>
+            </div>
+            <div class="reps">
+              <div class="reps-count">${reps}</div>
+              <div class="reps-label">PUSH-UPS</div>
+            </div>
+          </div>`;
+      }).join('') +
+    `</div>`;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function updateTimestamp() {
+    const el  = document.getElementById('lastUpdated');
+    const now = new Date();
+    el.textContent = 'Updated ' + now.toLocaleTimeString() + ' · Auto-refreshes every 60s';
+  }
+
+  function formatRelative(isoStr) {
+    if (!isoStr) return 'unknown';
+    const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+    if (diff < 60)   return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  function startAutoRefresh() {
+    autoRefreshTimer = setInterval(fetchLeaderboard, 60000);
+  }
+
+  // Enter key on group input
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('groupInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addGroup();
+    });
+  });
+</script>
+</body>
+</html>
