@@ -177,6 +177,10 @@
     }
 
     .entry:hover { border-color: rgba(255,255,255,0.15); }
+    .entry.is-me  {
+      border-color: rgba(230,59,46,0.5);
+      background: rgba(230,59,46,0.08);
+    }
 
     @keyframes slideIn {
       from { opacity: 0; transform: translateY(8px); }
@@ -292,6 +296,18 @@
     <button class="group-btn" onclick="addGroup()">+ ADD</button>
   </div>
 
+  <!-- Device code — highlights your row -->
+  <div class="group-bar">
+    <input
+      class="group-input"
+      id="deviceCodeInput"
+      placeholder="Your device code e.g. ABCD-EFGH"
+      maxlength="9"
+      style="text-transform:uppercase"
+    />
+    <button class="group-btn" onclick="setDeviceCode()">HIGHLIGHT ME</button>
+  </div>
+
   <!-- Share URL (shown when viewing a private group) -->
   <div class="share-url" id="shareUrl">
     Share this leaderboard: <span id="shareLink"></span><br/>
@@ -329,6 +345,7 @@
   let activeGrp = 'global';
   let timeframe = 'week';
   let autoRefreshTimer = null;
+  let myUserId  = null;         // device code for row highlighting
 
   // ── Init ───────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
@@ -346,6 +363,13 @@
     if (saved) {
       const parsed = JSON.parse(saved);
       parsed.forEach(g => { if (!groups.includes(g)) groups.push(g); });
+    }
+
+    // Restore saved device code
+    const savedCode = localStorage.getItem('pushpeak_device_id');
+    if (savedCode) {
+      myUserId = savedCode;
+      document.getElementById('deviceCodeInput').value = formatCode(savedCode);
     }
 
     renderPills();
@@ -416,6 +440,32 @@
     });
   }
 
+  // ── Device code ───────────────────────────────────────────
+  function formatCode(raw) {
+    const clean = raw.replace('-', '');
+    return clean.length === 8 ? clean.substring(0, 4) + '-' + clean.substring(4) : raw;
+  }
+
+  function setDeviceCode() {
+    const input = document.getElementById('deviceCodeInput');
+    const raw   = input.value.toUpperCase().replace('-', '').trim();
+    if (raw.length !== 8) {
+      input.style.borderColor = 'rgba(230,59,46,0.8)';
+      input.placeholder = 'Format: ABCD-EFGH';
+      setTimeout(() => {
+        input.style.borderColor = '';
+        input.placeholder = 'Your device code e.g. ABCD-EFGH';
+      }, 2000);
+      return;
+    }
+    myUserId = raw;
+    localStorage.setItem('pushpeak_device_id', raw);
+    input.value = formatCode(raw);
+    renderLeaderboard(currentEntries);
+  }
+
+  let currentEntries = [];
+
   // ── Render group pills ─────────────────────────────────────
   function renderPills() {
     const container = document.getElementById('groupPills');
@@ -477,6 +527,7 @@
 
   // ── Render entries ─────────────────────────────────────────
   function renderLeaderboard(entries) {
+    currentEntries = entries;
     const content = document.getElementById('leaderboardContent');
 
     if (!entries || entries.length === 0) {
@@ -499,9 +550,10 @@
         const sessions = e.session_count;
         const lastSeen = formatRelative(e.last_active);
         const delay   = (i * 50) + 'ms';
+        const isMe    = myUserId && e.user_id === myUserId;
 
         return `
-          <div class="entry" style="animation-delay:${delay}">
+          <div class="entry${isMe ? ' is-me' : ''}" style="animation-delay:${delay}">
             <div class="rank">${icon}</div>
             <div class="avatar">${name}</div>
             <div class="info">
@@ -541,6 +593,9 @@
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('groupInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') addGroup();
+    });
+    document.getElementById('deviceCodeInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') setDeviceCode();
     });
   });
 </script>
