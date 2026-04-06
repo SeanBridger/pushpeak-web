@@ -494,7 +494,7 @@
       entries.map((e, i) => {
         const rank    = i + 1;
         const icon    = rankIcons[rank] || `#${rank}`;
-        const initials = e.user_name || '???';
+        const name    = e.user_name || '???';
         const reps    = Number(e.total_reps).toLocaleString();
         const sessions = e.session_count;
         const lastSeen = formatRelative(e.last_active);
@@ -503,9 +503,9 @@
         return `
           <div class="entry" style="animation-delay:${delay}">
             <div class="rank">${icon}</div>
-            <div class="avatar">${initials}</div>
+            <div class="avatar">${name}</div>
             <div class="info">
-              <div class="initials">${initials}</div>
+              <div class="name">${name}</div>
               <div class="meta">${sessions} session${sessions !== 1 ? 's' : ''} · ${lastSeen}</div>
             </div>
             <div class="reps">
